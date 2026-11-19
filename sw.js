@@ -1,5 +1,5 @@
 /* Service worker: بيخزّن ملفات الواجهة بس (التطبيق يفتح بسرعة). طلبات الـ API عمرها ما بتتخزن. */
-const V = 'mcw-v5-1', SHELL = ['./', 'index.html', 'css/app.css', 'config.js', 'js/i18n.js', 'js/core.js', 'js/scanner.js', 'js/shell.js', 'js/views-main.js', 'js/views-scan.js', 'js/views-pick.js', 'manifest.json', 'icons/icon.svg'];
+const V = 'mcw-v5-2', SHELL = ['./', 'index.html', 'app.css', 'config.js', 'i18n.js', 'core.js', 'scanner.js', 'shell.js', 'views-main.js', 'views-scan.js', 'views-pick.js', 'manifest.json', 'icon.svg'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
