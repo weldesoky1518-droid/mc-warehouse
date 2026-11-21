@@ -14,7 +14,7 @@ const I18N = {
     // lookup
     lk_ph: 'باركود / كود / اسم الصنف', lk_not_found: 'الصنف مش موجود', lk_results: 'نتيجة', location: 'المكان', location2: 'مكان تاني', category: 'القسم', season: 'السيزون', model: 'الموديل',
     pend_demand: 'مطلوب في أوردرات', returns_area: 'في منطقة المرتجعات', moves: 'آخر الحركات', adjust: 'تسوية', adj_qty: 'الكمية (+/-)', adj_reason: 'السبب', adj_done: 'اتسجلت التسوية',
-    opening: 'رصيد البداية', gap_ae: 'فعلي − ERP', erp_shopify: 'ERP − Shopify',
+    not_in_erp: 'الصنف ده مش في تقرير On Hand (رصيده صفر في الـ ERP) — موجود في Shopify بس', opening: 'رصيد البداية', gap_ae: 'فعلي − ERP', erp_shopify: 'ERP − Shopify',
     // receiving
     rc_pick: 'اختار إذن الاستلام', rc_code: 'كود الإذن', rc_lines: 'صنف', rc_expected: 'المتوقع', rc_scanned: 'اتسكان', rc_approved: 'معتمد', rc_open: 'مفتوح', rc_missing: 'ناقص', rc_over: 'زيادة', rc_extra: 'خارج الإذن',
     rc_all: 'الكل', rc_approve: 'اعتماد الاستلام', rc_approve_q: 'تعتمد الإذن؟ هتتسجل الحركات والفروق.', rc_done: 'اتعتمد الإذن', rc_locked: 'الإذن معتمد — مينفعش سكان', rc_no_codes: 'مفيش أذونات. الصق بيانات الإذن في الشيت.',
@@ -24,7 +24,7 @@ const I18N = {
     // picking
     pk_all_days: 'كل الأيام', pk_open: 'لسه', pk_done: 'اتجهّز', pk_all: 'الكل', pk_filters: 'فلاتر', pk_search: 'بحث (أوردر / كود / منتج)', pk_from: 'من', pk_to: 'إلى', pk_cat: 'القسم', pk_loc: 'المكان يبدأ بـ',
     pk_status: 'الحالة', pk_hold: 'وقف الأوردر', pk_hold_reason: 'سبب الوقف', pk_hold_ok: 'اتوقف الأوردر', pk_held_tab: 'واقفة', pk_list_tab: 'القايمة', pk_release: 'رجّع للتحضير', pk_released: 'هيرجع للتحضير خلال دقيقة',
-    pk_refresh: 'تحديث من Shopify', pk_refreshing: 'جاري السحب من Shopify…', pk_open_shopify: 'فتح في Shopify', pk_since: 'من', pk_days: 'يوم', pk_lines: 'سطر', pk_flags: 'تنبيه', pk_status_hold: 'واقف', pk_status_back: 'رجع للتحضير', pk_status_fulfilled: 'اتجهز', pk_status_cancelled: 'اتلغى',
+    pk_refresh: 'تحديث من Shopify', pk_refreshing: 'جاري السحب من Shopify…', pk_open_shopify: 'فتح في Shopify', pk_view_cards: 'أوردرات', pk_view_route: 'مسار', pk_done_order: 'تم الأوردر', pk_undo_order: 'إلغاء', pk_since: 'من', pk_days: 'يوم', pk_lines: 'سطر', pk_flags: 'تنبيه', pk_status_hold: 'واقف', pk_status_back: 'رجع للتحضير', pk_status_fulfilled: 'اتجهز', pk_status_cancelled: 'اتلغى',
     // exceptions
     ex_status: 'الحالة', ex_type: 'النوع', ex_active: 'المفتوحة', ex_all: 'الكل', ex_assigned: 'مسؤول', ex_note: 'ملاحظة', ex_expected: 'متوقع', ex_actual: 'فعلي', ex_diff: 'فرق', ex_edit: 'تعديل الاستثناء',
     // users
@@ -45,14 +45,14 @@ const I18N = {
     by_category: 'By category', exc_by_type: 'Exceptions by type', full_dash: 'Full dashboard', updated: 'Updated', no_opening: 'Opening balance not set yet — "Actual" is not accurate', refresh_stock: 'Refresh stock',
     lk_ph: 'Barcode / SKU / name', lk_not_found: 'Item not found', lk_results: 'results', location: 'Location', location2: 'Alt. location', category: 'Category', season: 'Season', model: 'Model',
     pend_demand: 'Needed in orders', returns_area: 'In returns area', moves: 'Recent movements', adjust: 'Adjust', adj_qty: 'Qty (+/-)', adj_reason: 'Reason', adj_done: 'Adjustment saved',
-    opening: 'Opening', gap_ae: 'Actual − ERP', erp_shopify: 'ERP − Shopify',
+    not_in_erp: 'Not in the On Hand report (zero in ERP) — exists in Shopify only', opening: 'Opening', gap_ae: 'Actual − ERP', erp_shopify: 'ERP − Shopify',
     rc_pick: 'Choose a receiving document', rc_code: 'Document code', rc_lines: 'items', rc_expected: 'Expected', rc_scanned: 'Scanned', rc_approved: 'Approved', rc_open: 'Open', rc_missing: 'Missing', rc_over: 'Over', rc_extra: 'Not on document',
     rc_all: 'All', rc_approve: 'Approve receiving', rc_approve_q: 'Approve this document? Movements and differences will be recorded.', rc_done: 'Document approved', rc_locked: 'Approved — scanning locked', rc_no_codes: 'No documents. Paste the receiving data in the sheet.',
     st_OK: 'OK', st_OVER: 'Over', st_NOT_IN_LIST: 'Not on list', st_INVALID: 'Bad barcode', st_DUP: 'Duplicate', st_UNKNOWN: 'Unknown barcode', undo: 'Undo', put_in: 'Put in', matched: 'Linked to order', unmatched: 'Unregistered return',
     rt_scan: 'Scan', rt_putaway: 'Put away', rt_session: 'Scanned this session', rt_none_put: 'Nothing to put away', rt_done: 'Done', rt_undo_done: 'Undo put-away',
     pk_all_days: 'All days', pk_open: 'Open', pk_done: 'Picked', pk_all: 'All', pk_filters: 'Filters', pk_search: 'Search (order / code / product)', pk_from: 'From', pk_to: 'To', pk_cat: 'Category', pk_loc: 'Location starts with',
     pk_status: 'Status', pk_hold: 'Hold order', pk_hold_reason: 'Hold reason', pk_hold_ok: 'Order put on hold', pk_held_tab: 'On hold', pk_list_tab: 'List', pk_release: 'Release to picking', pk_released: 'Will return to picking within a minute',
-    pk_refresh: 'Refresh from Shopify', pk_refreshing: 'Pulling from Shopify…', pk_open_shopify: 'Open in Shopify', pk_since: 'since', pk_days: 'd', pk_lines: 'lines', pk_flags: 'Flag', pk_status_hold: 'On hold', pk_status_back: 'Released', pk_status_fulfilled: 'Fulfilled', pk_status_cancelled: 'Cancelled',
+    pk_refresh: 'Refresh from Shopify', pk_refreshing: 'Pulling from Shopify…', pk_open_shopify: 'Open in Shopify', pk_view_cards: 'Orders', pk_view_route: 'Route', pk_done_order: 'Order done', pk_undo_order: 'Undo', pk_since: 'since', pk_days: 'd', pk_lines: 'lines', pk_flags: 'Flag', pk_status_hold: 'On hold', pk_status_back: 'Released', pk_status_fulfilled: 'Fulfilled', pk_status_cancelled: 'Cancelled',
     ex_status: 'Status', ex_type: 'Type', ex_active: 'Open', ex_all: 'All', ex_assigned: 'Assigned to', ex_note: 'Note', ex_expected: 'Expected', ex_actual: 'Actual', ex_diff: 'Diff', ex_edit: 'Edit exception',
     us_add: 'New user', us_name: 'Name', us_role: 'Role', us_extra: 'Extra permissions', us_active: 'Active', us_newpin: 'New PIN (leave empty to keep)', us_last: 'Last login', us_locked: 'Locked', us_inactive: 'Disabled',
     old_pin: 'Current PIN', new_pin: 'New PIN', change_pin: 'Change PIN', pin_changed: 'PIN changed', saved: 'Saved', session_end: 'Session expired, please sign in again',

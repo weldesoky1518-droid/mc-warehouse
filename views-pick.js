@@ -24,37 +24,76 @@ function pickingList(main) {
       data.days.map(d => h('button', { class: 'chip-b' + (single && F.from === d.date ? ' on' : ''), onclick: () => setF({ from: d.date, to: d.date }) }, d.date.slice(5), h('small', null, ' ' + d.open + '/' + d.pieces))));
     fBox.replaceChildren(h('div', { class: 'filters' }, h('input', { class: 'inp', type: 'search', placeholder: t('pk_search'), value: F.q, onchange: e => setF({ q: e.target.value }), 'aria-label': t('pk_search') }),
       h('select', { class: 'inp sm', onchange: e => setF({ status: e.target.value }), 'aria-label': t('pk_status') }, [['open', t('pk_open')], ['done', t('pk_done')], ['all', t('pk_all')]].map(o => h('option', { value: o[0], selected: F.status === o[0] }, o[1]))),
-      h('button', { class: 'btn small', onclick: () => { showF = !showF; draw(); } }, icon('filter', 16), ' ', t('pk_filters'))),
+      ),
+      h('div', { class: 'filters row2' }, h('button', { class: 'btn small', onclick: () => { showF = !showF; draw(); } }, icon('filter', 16), ' ', t('pk_filters')),
+        h('div', { class: 'seg mini-seg' }, ['cards', 'route'].map(m => h('button', { class: store.get('pk:mode', 'cards') === m ? 'on' : '', onclick: () => { store.set('pk:mode', m); draw(); } }, t('pk_view_' + m))))),
       showF ? h('div', { class: 'filters adv' }, lab(t('pk_from'), h('input', { class: 'inp', type: 'date', value: F.from, onchange: e => setF({ from: e.target.value }) })), lab(t('pk_to'), h('input', { class: 'inp', type: 'date', value: F.to, onchange: e => setF({ to: e.target.value }) })),
         lab(t('pk_cat'), h('select', { class: 'inp', onchange: e => setF({ category: e.target.value }) }, h('option', { value: '' }, t('pk_all')), data.categories.map(c => h('option', { value: c, selected: F.category === c }, c)))),
         lab(t('pk_loc'), h('input', { class: 'inp', value: F.location, dir: 'ltr', onchange: e => setF({ location: e.target.value }) }))) : null);
     if (!data.rows.length) return listBox.replaceChildren(h('div', { class: 'card empty' }, t('none')));
-    let lastDay = '', lastOrder = '';
-    const items = []; data.rows.forEach(r => {
-      if (r.date !== lastDay) { items.push(h('div', { class: 'day-h' }, r.date)); lastDay = r.date; }
-      items.push(h('div', { class: 'pk' + (r.done ? ' done' : '') + (r.flags ? ' flag' : '') },
-        h('button', { class: 'chk' + (r.done ? ' on' : ''), role: 'checkbox', 'aria-checked': String(r.done), 'aria-label': r.title, onclick: e => toggle(r, e.currentTarget) }, r.done ? icon('check', 22) : null),
-        h('div', { class: 'pk-main' }, h('div', { class: 'pk-t' }, h('b', null, r.title), ' ', h('span', { class: 'muted' }, r.cs)), h('div', { class: 'muted small ltr' }, r.sku + ' · ' + r.upc + ' · #' + r.order), r.flags ? h('div', { class: 'flag-t' }, r.flags) : null),
-        h('div', { class: 'pk-side' }, h('span', { class: 'qty big' + (r.qty > 1 ? ' multi' : '') }, '×' + r.qty), h('span', { class: 'loc' }, r.loc), h('span', { class: 'muted small' }, r.cat)),
-        h('button', { class: 'icon-btn', 'aria-label': 'more', onclick: () => rowMenu(r) }, icon('more', 18))));
-    });
-    listBox.replaceChildren(h('div', { class: 'pk-list card' }, items), data.rows.length < data.total ? h('button', { class: 'btn block', onclick: () => load(true) }, t('more') + ' (' + data.rows.length + '/' + data.total + ')') : null);
+    const mode = store.get('pk:mode', 'cards'), pageEl = [];
+    if (mode === 'route') {
+      let lastDay = '';
+      data.rows.forEach(r => { if (r.date !== lastDay) { pageEl.push(h('div', { class: 'day-h' }, r.date)); lastDay = r.date; } pageEl.push(lineRow(r, true)); });
+      listBox.replaceChildren(h('div', { class: 'pk-list card' }, pageEl), moreBtn());
+    } else {
+      const groups = [], idx = {};
+      data.rows.forEach(r => { const k = r.date + '|' + r.order; if (idx[k] === undefined) { idx[k] = groups.length; groups.push({ date: r.date, order: r.order, oid: r.oid, cust: r.cust, rows: [] }); } groups[idx[k]].rows.push(r); });
+      let lastDay = '';
+      groups.forEach(g => { if (g.date !== lastDay) { pageEl.push(h('div', { class: 'day-h' }, g.date)); lastDay = g.date; } pageEl.push(orderCard(g)); });
+      listBox.replaceChildren(h('div', { class: 'pk-cards' }, pageEl), moreBtn());
+    }
+  }
+  const moreBtn = () => data.rows.length < data.total ? h('button', { class: 'btn block', onclick: () => load(true) }, t('more') + ' (' + data.rows.length + '/' + data.total + ')') : null;
+  const shopUrl = (oid, num) => data.handle ? 'https://admin.shopify.com/store/' + data.handle + '/orders' + (oid ? '/' + oid : '?query=' + encodeURIComponent(num)) : '';
+  function lineRow(r, showOrder) {
+    return h('div', { class: 'pk' + (r.done ? ' done' : '') + (r.flags ? ' flag' : ''), 'data-k': r.k },
+      h('button', { class: 'chk' + (r.done ? ' on' : ''), role: 'checkbox', 'aria-checked': String(r.done), 'aria-label': r.title, onclick: e => toggle(r, e.currentTarget) }, r.done ? icon('check', 22) : null),
+      h('div', { class: 'pk-main' }, h('div', { class: 'pk-t' }, h('b', null, r.title), ' ', h('span', { class: 'muted' }, r.cs)),
+        h('div', { class: 'muted small ltr' }, r.sku + ' · ' + r.upc + (showOrder ? '' : '')),
+        showOrder ? h('div', { class: 'ord-tag ltr' }, '#' + r.order, ' ', h('small', { class: 'muted' }, r.cust)) : null, r.flags ? h('div', { class: 'flag-t' }, r.flags) : null),
+      h('div', { class: 'pk-side' }, h('span', { class: 'qty big' + (r.qty > 1 ? ' multi' : '') }, '×' + r.qty), h('span', { class: 'loc' }, r.loc), h('span', { class: 'muted small' }, r.cat)),
+      h('button', { class: 'icon-btn', 'aria-label': 'more', onclick: () => rowMenu(r) }, icon('more', 18)));
+  }
+  function orderCard(g) {
+    const rows = g.rows.slice().sort((x, y) => String(x.loc).localeCompare(String(y.loc), 'en', { numeric: true }));
+    const card = h('section', { class: 'ocard' }), bar = h('i'), cnt = h('span', { class: 'o-cnt' }), allBtn = h('button', { class: 'btn small primary', onclick: e => markAll(e.currentTarget) });
+    const url = shopUrl(g.oid, g.order);
+    const head = h('header', { class: 'o-head' },
+      h('div', { class: 'o-title' }, h('b', { class: 'o-num ltr' }, '#' + g.order), g.cust ? h('span', { class: 'muted o-cust' }, g.cust) : null),
+      h('div', { class: 'o-acts' }, url ? h('a', { class: 'btn small', target: '_blank', rel: 'noopener', href: url, 'aria-label': t('pk_open_shopify') }, icon('ext', 16), ' Shopify') : null,
+        h('button', { class: 'icon-btn', 'aria-label': 'more', onclick: () => rowMenu(rows[0], true) }, icon('more', 18))),
+      h('div', { class: 'o-prog' }, h('div', { class: 'o-bar' }, bar), cnt, allBtn));
+    const body = h('div', { class: 'o-body' }, rows.map(r => lineRow(r, false)));
+    card.append(head, body);
+    function refresh() {
+      const done = rows.filter(r => r.done).length, tot = rows.length, pcs = rows.reduce((a, r) => a + r.qty, 0);
+      bar.style.width = Math.round(done / tot * 100) + '%'; cnt.textContent = done + '/' + tot + ' · ' + pcs + ' ' + t('pieces');
+      card.classList.toggle('all-done', done === tot); allBtn.textContent = done === tot ? t('pk_undo_order') : t('pk_done_order');
+    }
+    g.refresh = refresh; rows.forEach(r => r._card = g); refresh();
+    function markAll(btn) {
+      const want = !rows.every(r => r.done);
+      rows.forEach((r, i) => { if (r.done !== want) { r.done = want; pendingDone[r.k] = want; } });
+      body.replaceChildren(...rows.map(r => lineRow(r, false))); refresh(); beep('ok'); clearTimeout(flushT); flushT = setTimeout(flush, 700);
+    }
+    return card;
   }
   const lab = (l, el) => h('label', { class: 'f' }, h('span', null, l), el);
   const mini2 = (l, v) => h('div', { class: 'mini' }, h('div', { class: 'mini-v' }, fmt(v)), h('div', { class: 'mini-l' }, l));
   function toggle(r, btn) {
     r.done = !r.done; btn.classList.toggle('on', r.done); btn.replaceChildren(...(r.done ? [icon('check', 22)] : [])); btn.parentNode.classList.toggle('done', r.done); beep('ok');
-    pendingDone[r.k] = r.done; clearTimeout(flushT); flushT = setTimeout(flush, 700);
+    pendingDone[r.k] = r.done; if (r._card) r._card.refresh(); clearTimeout(flushT); flushT = setTimeout(flush, 700);
   }
   async function flush() {
     const ks = Object.keys(pendingDone); if (!ks.length) return; const yes = ks.filter(k => pendingDone[k]), no = ks.filter(k => !pendingDone[k]); ks.forEach(k => delete pendingDone[k]);
     try { if (yes.length) await api('pickingDone', { keys: yes, done: true }); if (no.length) await api('pickingDone', { keys: no, done: false }); }
     catch (e) { yes.forEach(k => pendingDone[k] = true); no.forEach(k => pendingDone[k] = false); toast(e.message, 'bad'); flushT = setTimeout(flush, 5000); }
   }
-  function rowMenu(r) {
+  function rowMenu(r, orderOnly) {
     const reason = h('textarea', { class: 'inp', rows: 2, placeholder: t('pk_hold_reason') });
-    const shop = data.handle ? h('a', { class: 'btn', target: '_blank', rel: 'noopener', href: 'https://admin.shopify.com/store/' + data.handle + '/orders?query=' + encodeURIComponent(r.order) }, icon('ext', 16), ' ', t('pk_open_shopify')) : null;
-    modal('#' + r.order, h('div', { class: 'form' }, h('div', null, h('b', null, r.title), ' ', r.cs), h('div', { class: 'muted ltr' }, r.sku + ' · ' + r.upc), h('div', null, h('span', { class: 'loc' }, r.loc), r.loc2 ? ' ' + r.loc2 : ''), shop, h('a', { class: 'btn', href: '#/lookup/' + r.upc, onclick: () => { document.querySelector('.modal-back').remove(); } }, icon('search', 16), ' ', t('lookup')),
+    const shop = data.handle ? h('a', { class: 'btn', target: '_blank', rel: 'noopener', href: shopUrl(r.oid, r.order) }, icon('ext', 16), ' ', t('pk_open_shopify')) : null;
+    modal('#' + r.order, h('div', { class: 'form' }, orderOnly ? null : h('div', null, h('b', null, r.title), ' ', r.cs), orderOnly ? null : h('div', { class: 'muted ltr' }, r.sku + ' · ' + r.upc), orderOnly ? null : h('div', null, h('span', { class: 'loc' }, r.loc), r.loc2 ? ' ' + r.loc2 : ''), shop, orderOnly ? null : h('a', { class: 'btn', href: '#/lookup/' + r.upc, onclick: () => { document.querySelector('.modal-back').remove(); } }, icon('search', 16), ' ', t('lookup')),
       can('hold') ? h('div', { class: 'form' }, h('h4', null, t('pk_hold')), reason) : null),
       close => can('hold') ? [h('button', { class: 'btn', onclick: close }, t('close')), h('button', { class: 'btn danger', onclick: e => busy(e.currentTarget, async () => { await api('holdOrders', { orders: [r.order], reason: reason.value }); toast(t('pk_hold_ok'), 'ok'); close(); load(); }) }, icon('pause', 16), ' ', t('pk_hold'))] : [h('button', { class: 'btn', onclick: close }, t('close'))]);
   }

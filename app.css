@@ -65,3 +65,19 @@ a{color:var(--brand);text-decoration:none}.ltr{direction:ltr;unicode-bidi:plaint
 .modal{background:var(--surface);width:100%;max-width:520px;border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column}@media (min-width:700px){.modal{border-radius:20px}}
 .modal-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px}.modal-b{padding:6px 16px 10px;overflow:auto}.modal-f{display:flex;gap:8px;justify-content:flex-end;padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}.modal-f .btn{flex:1}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- كروت الأوردرات ---- */
+.pk-cards{display:grid;gap:14px;padding-bottom:8px}
+.ocard{background:var(--surface);border:1px solid var(--line);border-inline-start:5px solid var(--brand);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.ocard.all-done{border-inline-start-color:var(--ok);opacity:.65}
+.o-head{display:grid;gap:8px;padding:10px 12px;background:var(--surface2);border-bottom:1px solid var(--line)}
+.o-title{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.o-num{font-size:1.25rem;font-weight:800}.o-cust{font-size:.9rem}
+.o-acts{display:flex;gap:6px;align-items:center;position:absolute;inset-inline-end:8px;margin-top:-2px}
+.o-head{position:relative}
+.o-prog{display:flex;align-items:center;gap:10px}.o-bar{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}.o-bar i{display:block;height:100%;background:var(--ok);transition:width .2s}
+.o-cnt{font-size:.85rem;font-weight:700;white-space:nowrap}
+.o-body{padding:0 12px}.o-body .pk:last-child{border-bottom:0}
+.ord-tag{font-weight:800;color:var(--brand);font-size:.95rem}
+.mini-seg{margin:0}.mini-seg>*{padding:4px 12px;min-height:36px}
+
+.filters.row2{justify-content:space-between;flex-wrap:nowrap}.pk .pk-side{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:42%;gap:6px}.ocard .pk .pk-side .muted{display:none}.pk .loc{white-space:nowrap}.ocard .pk{align-items:flex-start;padding:12px 0}
