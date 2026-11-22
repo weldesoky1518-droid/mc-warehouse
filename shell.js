@@ -19,7 +19,7 @@ class ScanQueue {
   async drain(maxMs) { const t0 = Date.now(); while ((this.items.length || this.busy) && Date.now() - t0 < (maxMs || 20000)) { this.kick(0); await new Promise(r => setTimeout(r, 250)); } return !this.items.length; }
 }
 
-const NAV_ORDER = ['home', 'lookup', 'receiving', 'returns', 'picking', 'exceptions', 'users', 'settings'];
+const NAV_ORDER = ['home', 'lookup', 'receiving', 'returns', 'picking', 'exceptions', 'adjustments', 'performance', 'users', 'settings'];
 const Routes = {};   // name -> { perm, icon, label, view(main, param) -> cleanup? }
 const Shell = {
   cleanup: null, main: null,

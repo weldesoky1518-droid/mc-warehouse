@@ -81,3 +81,7 @@ a{color:var(--brand);text-decoration:none}.ltr{direction:ltr;unicode-bidi:plaint
 .mini-seg{margin:0}.mini-seg>*{padding:4px 12px;min-height:36px}
 
 .filters.row2{justify-content:space-between;flex-wrap:nowrap}.pk .pk-side{flex-direction:row;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:42%;gap:6px}.ocard .pk .pk-side .muted{display:none}.pk .loc{white-space:nowrap}.ocard .pk{align-items:flex-start;padding:12px 0}
+
+/* ---- أداء + تسويات ---- */
+.ptbl{display:grid}.ptr{display:grid;grid-template-columns:1.4fr .8fr .8fr 1.2fr .9fr;gap:6px;padding:8px 0;border-bottom:1px solid var(--line);font-size:.88rem;align-items:center}.ptr.head{color:var(--muted);font-weight:700;font-size:.78rem}.card>.ptr{grid-template-columns:1.6fr .6fr 1fr 1fr}.ptr.slow{color:var(--bad);font-weight:700}
+.li.adj .li-side{align-items:flex-end;gap:6px}.neg{color:var(--bad)}.pos{color:var(--ok)}

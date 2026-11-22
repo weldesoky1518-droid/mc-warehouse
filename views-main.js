@@ -11,9 +11,12 @@ function badge(text, tone) { return h('span', { class: 'badge ' + (tone || '') }
 Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
   const box = h('div'); main.append(pageHead(t('home'), can('sync') ? h('button', { class: 'btn small', onclick: async e => { await busy(e.currentTarget, () => api('refreshStock', {}, { timeout: 280000 })); toast(t('saved'), 'ok'); load(); } }, icon('refresh', 16), ' ', t('refresh_stock')) : null), box);
   async function load() {
-    box.replaceChildren(spinner());
-    try {
-      const m = await api('home'); box.replaceChildren();
+    const cached = store.get('cache:home', null); if (cached) draw(cached); else box.replaceChildren(spinner());   // نعرض آخر نسخة فورًا ونحدّث في الخلفية
+    try { const m = await api('home'); store.set('cache:home', m); draw(m); } catch (e) { if (!cached) box.replaceChildren(errorBox(e, load)); }
+  }
+  function draw(m) {
+    {
+      box.replaceChildren();
       if (!m.opening) box.append(h('div', { class: 'banner warn' }, t('no_opening')));
       box.append(h('div', { class: 'grid stats' },
         stat(t('actual'), m.opening ? fmt(m.actual) : '—', null, 'brand'), stat(t('erp'), fmt(m.erp)), stat(t('shopify'), fmt(m.shopify)),
@@ -31,7 +34,7 @@ Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
       }
       if (m.excRows && m.excRows.length) { const mx = Math.max.apply(null, m.excRows.map(r => r[1])); box.append(h('div', { class: 'card' }, h('h3', null, t('exc_by_type')), m.excRows.map(r => h('div', { class: 'bars' }, h('div', { class: 'bars-l' }, r[0]), h('div', { class: 'bars-b' }, bar('w', r[1], mx))))));}
       box.append(h('div', { class: 'foot-note' }, t('updated') + ': ' + m.updated), App.lookerUrl && can('dashboard') ? h('a', { class: 'btn primary', href: App.lookerUrl, target: '_blank', rel: 'noopener' }, icon('chart', 18), ' ', t('full_dash')) : null);
-    } catch (e) { box.replaceChildren(errorBox(e, load)); }
+    }
   }
   function mini(l, v) { return h('div', { class: 'mini' }, h('div', { class: 'mini-v' }, fmt(v)), h('div', { class: 'mini-l' }, l)); }
   function bar(k, v, mx) { return h('div', { class: 'bar ' + k, style: { width: Math.max(2, v / mx * 100) + '%' }, title: fmt(v) }, h('span', null, fmt(v))); }
@@ -55,7 +58,7 @@ Routes.lookup = { icon: 'search', label: 'lookup', perm: 'lookup', view(main, pa
   function detail(d) {
     const kv = (k, v, tone) => h('div', { class: 'kv ' + (tone || '') }, h('div', { class: 'kv-k' }, k), h('div', { class: 'kv-v' }, v));
     const gap = d.gapActualErp;
-    return h('div', { class: 'card detail' }, h('div', { class: 'detail-h' }, h('div', null, h('h3', null, d.title || d.sku), h('div', { class: 'muted ltr' }, d.sku + ' · ' + d.upc)),
+    return h('div', { class: 'card detail' }, d.notInErp ? h('div', { class: 'banner warn' }, t('not_in_erp')) : null, h('div', { class: 'detail-h' }, h('div', null, h('h3', null, d.title || d.sku), h('div', { class: 'muted ltr' }, d.sku + ' · ' + d.upc)),
       h('div', { class: 'bigloc' }, h('small', null, t('location')), h('b', null, d.location || '—'), d.location2 ? h('small', null, t('location2') + ': ' + d.location2) : null)),
       h('div', { class: 'grid kvs' }, kv(t('actual'), d.hasOpening ? fmt(d.actual) : '—', 'brand'), kv(t('erp'), fmt(d.erp)), kv(t('shopify'), fmt(d.shopify)),
         kv(t('pend_demand'), fmt(d.pendingDemand), d.pendingDemand > (d.actual || 0) && d.hasOpening ? 'bad' : ''), kv(t('returns_area'), fmt(d.returnsArea)),
@@ -67,7 +70,7 @@ Routes.lookup = { icon: 'search', label: 'lookup', perm: 'lookup', view(main, pa
   }
   function adjust(d) {
     const q = h('input', { class: 'inp', type: 'number', inputmode: 'numeric', placeholder: t('adj_qty'), dir: 'ltr' }), r = h('input', { class: 'inp', placeholder: t('adj_reason') });
-    modal(t('adjust') + ' · ' + (d.sku || d.upc), h('div', { class: 'form' }, q, r), close => [h('button', { class: 'btn', onclick: close }, t('cancel')), h('button', { class: 'btn primary', onclick: async e => { await busy(e.currentTarget, async () => { const x = await api('adjustAdd', { upc: d.upc, qty: Number(q.value), reason: r.value }); toast(x.message || t('adj_done'), 'ok'); close(); }); } }, t('save'))]);
+    modal(t('adjust') + ' · ' + (d.sku || d.upc), h('div', { class: 'form' }, q, r), close => [h('button', { class: 'btn', onclick: close }, t('cancel')), h('button', { class: 'btn primary', onclick: async e => { await busy(e.currentTarget, async () => { const x = await api('adjustAdd', { upc: d.upc, qty: Number(q.value), reason: r.value }); toast(x.message || t('adj_done'), x.pending ? 'warn' : 'ok'); close(); }); } }, t('save'))]);
   }
   if (param) run(param); else sp.focus();
   return () => sp.destroy();

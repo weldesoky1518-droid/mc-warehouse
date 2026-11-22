@@ -134,5 +134,47 @@ Routes.exceptions = { icon: 'alert', label: 'exceptions', perm: 'exceptions', vi
   load();
 } };
 
+/* ---- الأداء والسرعة ---- */
+const fmtDur = sec => sec === null || sec === undefined ? '—' : sec < 60 ? sec + ' ' + t('u_sec') : Math.floor(sec / 60) + ' ' + t('u_min') + (sec % 60 ? ' ' + (sec % 60) + ' ' + t('u_sec') : '');
+Routes.performance = { icon: 'chart', label: 'performance', perm: 'performance', view(main) {
+  let days = store.get('perf:days', 7); const box = h('div'), chips = h('div', { class: 'chips' });
+  main.append(pageHead(t('performance')), chips, box);
+  const drawChips = () => chips.replaceChildren(...[[1, t('today')], [7, t('d7')], [30, t('d30')]].map(x => h('button', { class: 'chip-b' + (days === x[0] ? ' on' : ''), onclick: () => { days = x[0]; store.set('perf:days', days); drawChips(); load(); } }, x[1])));
+  const mini = (l, v) => h('div', { class: 'mini' }, h('div', { class: 'mini-v' }, v), h('div', { class: 'mini-l' }, l));
+  const hbar = (label, v, mx, extra) => h('div', { class: 'bars' }, h('div', { class: 'bars-l' }, label), h('div', { class: 'bars-b' }, h('div', { class: 'bar a' + (extra || ''), style: { width: Math.max(2, v / mx * 100) + '%' } }, h('span', null, fmt(v)))));
+  async function load() {
+    box.replaceChildren(spinner());
+    try {
+      const d = await api('performance', { days }); box.replaceChildren();
+      if (!d.hasData) box.append(h('div', { class: 'banner warn' }, t('perf_nodata')));
+      else {
+        box.append(h('div', { class: 'row3 sum' }, mini(t('orders'), fmt(d.totals.orders)), mini(t('pieces'), fmt(d.totals.pieces)), mini(t('avg_order'), fmtDur(d.totals.avgOrderSec))));
+        box.append(h('div', { class: 'card' }, h('h3', null, t('per_picker')), h('div', { class: 'ptbl' },
+          h('div', { class: 'ptr head' }, h('span', null, t('picker')), h('span', null, t('orders')), h('span', null, t('pieces')), h('span', null, t('avg_order')), h('span', null, t('pcs_hr'))),
+          d.users.map(u => h('div', { class: 'ptr' }, h('b', { class: 'ltr' }, u.user), h('span', null, fmt(u.orders)), h('span', null, fmt(u.pieces)), h('span', null, fmtDur(u.avgOrderSec)), h('span', null, u.piecesPerHour === null ? '—' : u.piecesPerHour)))), h('div', { class: 'muted small' }, t('perf_note'))));
+        const mxd = Math.max.apply(null, d.days.map(x => x.pieces).concat([1])); if (d.days.length) box.append(h('div', { class: 'card' }, h('h3', null, t('per_day')), d.days.map(x => hbar(x.date.slice(5) + ' · ' + x.orders + ' ' + t('orders'), x.pieces, mxd))));
+        const hs = d.hours.filter(x => x.pieces > 0), mxh = Math.max.apply(null, d.hours.map(x => x.pieces).concat([1])); if (hs.length) box.append(h('div', { class: 'card' }, h('h3', null, t('per_hour')), hs.map(x => hbar(String(x.hour).padStart(2, '0') + ':00', x.pieces, mxh))));
+      }
+      const sp = d.speed || []; box.append(h('div', { class: 'card' }, h('h3', null, t('sys_speed')), sp.length ? sp.map(x => h('div', { class: 'ptr' + (x.avg > 3000 ? ' slow' : '') }, h('b', { class: 'ltr' }, x.action), h('span', null, x.n + '×'), h('span', null, x.avg + ' ms'), h('span', { class: 'muted' }, 'max ' + x.max))) : h('div', { class: 'muted' }, t('none')), h('div', { class: 'muted small' }, t('speed_note'))));
+    } catch (e) { box.replaceChildren(errorBox(e, load)); }
+  }
+  drawChips(); load();
+} };
+
+/* ---- اعتماد التسويات ---- */
+Routes.adjustments = { icon: 'check', label: 'adjustments', perm: 'adjust_approve', view(main) {
+  const box = h('div'); main.append(pageHead(t('adjustments')), box);
+  async function load() {
+    box.replaceChildren(spinner());
+    try {
+      const d = await api('adjustPending'); if (!d.rows.length) return box.replaceChildren(h('div', { class: 'card empty' }, t('adj_none')));
+      const decide = (r, ok, btn) => busy(btn, async () => { await api('adjustDecide', { ids: [r.id], approve: ok }); toast(ok ? t('adj_approved') : t('adj_rejected'), ok ? 'ok' : 'warn'); load(); });
+      box.replaceChildren(h('div', { class: 'list card' }, d.rows.map(r => h('div', { class: 'li static adj' }, h('div', { class: 'li-main' }, h('b', null, r.title || r.upc), h('div', { class: 'muted small ltr' }, r.upc + ' · ' + r.date), h('div', null, r.reason), h('div', { class: 'muted small' }, t('adj_by') + ' @' + r.by)),
+        h('div', { class: 'li-side' }, h('span', { class: 'qty big ' + (r.qty < 0 ? 'neg' : 'pos') }, (r.qty > 0 ? '+' : '') + r.qty), h('button', { class: 'btn small primary', onclick: e => decide(r, true, e.currentTarget) }, t('approve')), h('button', { class: 'btn small danger', onclick: e => decide(r, false, e.currentTarget) }, t('reject')))))));
+    } catch (e) { box.replaceChildren(errorBox(e, load)); }
+  }
+  load();
+} };
+
 /* ---- تشغيل ---- */
 boot();
