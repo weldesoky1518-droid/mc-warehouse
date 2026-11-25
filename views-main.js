@@ -9,7 +9,11 @@ function errorBox(e, retry) { return h('div', { class: 'card err-card' }, h('p',
 function badge(text, tone) { return h('span', { class: 'badge ' + (tone || '') }, text); }
 
 Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
-  const box = h('div'); main.append(pageHead(t('home'), can('sync') ? h('button', { class: 'btn small', onclick: async e => { await busy(e.currentTarget, () => api('refreshStock', {}, { timeout: 280000 })); toast(t('saved'), 'ok'); load(); } }, icon('refresh', 16), ' ', t('refresh_stock')) : null), box);
+  const shBox = h('div', { class: 'muted small sh-line' });
+  async function shStatus() { try { const s = await api('shopifyStatus'); shBox.textContent = s.running ? t('hm_sh_running') + ' (' + fmt(s.count) + ')' : (s.last ? t('hm_sh_last') + ': ' + s.last : ''); } catch (e) {} }
+  async function shRefresh(e) { await busy(e.currentTarget, async () => { toast(t('hm_sh_running'), '', 4000); const r = await api('shopifyRefresh', {}, { timeout: 290000 }); toast(r.message, r.partial ? 'warn' : 'ok', 7000); shStatus(); load(); }); }
+  const box = h('div'); main.append(pageHead(t('home'), can('sync') ? h('button', { class: 'btn small', onclick: shRefresh }, icon('refresh', 16), ' ', t('hm_sh_refresh')) : null, can('sync') ? h('button', { class: 'btn small', onclick: async e => { await busy(e.currentTarget, () => api('refreshStock', {}, { timeout: 280000 })); toast(t('saved'), 'ok'); load(); } }, icon('refresh', 16), ' ', t('refresh_stock')) : null), shBox, box);
+  shStatus();
   async function load() {
     const cached = store.get('cache:home', null); if (cached) draw(cached); else box.replaceChildren(spinner());   // نعرض آخر نسخة فورًا ونحدّث في الخلفية
     try { const m = await api('home'); store.set('cache:home', m); draw(m); } catch (e) { if (!cached) box.replaceChildren(errorBox(e, load)); }
@@ -19,13 +23,17 @@ Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
       box.replaceChildren();
       if (!m.opening) box.append(h('div', { class: 'banner warn' }, t('no_opening')));
       box.append(h('div', { class: 'grid stats' },
-        stat(t('actual'), m.opening ? fmt(m.actual) : '—', null, 'brand'), stat(t('erp'), fmt(m.erp)), stat(t('shopify'), fmt(m.shopify)),
+        stat(t('actual') + ' · ' + t('hm_pieces'), m.opening ? fmt(m.actual) : '—', m.opening && m.actualItems !== null ? fmt(m.actualItems) + ' ' + t('hm_items') : null, 'brand'),
+        stat(t('erp') + ' · ' + t('hm_pieces'), fmt(m.erp), fmt(m.erpItems) + ' ' + t('hm_items'), '', can('compare') ? '#/compare' : null),
+        stat(t('shopify') + ' · ' + t('hm_pieces'), fmt(m.shopifyAll), fmt(m.shopifyVariants) + ' ' + t('hm_variants') + ' · ' + t('hm_matched') + ': ' + fmt(m.shopify), '', can('compare') ? '#/compare' : null),
+        stat(t('hm_ready'), fmt(m.readyOrders), null, m.readyOrders ? 'ok' : '', can('picking') ? '#/picking' : null), stat(t('hm_short'), fmt(m.shortOrders), null, m.shortOrders ? 'bad' : 'ok', can('picking') ? '#/picking' : null),
+        stat(t('hm_reorder'), fmt(m.reorderCount), null, m.reorderCount ? 'warn' : '', can('compare') ? '#/compare/reorder' : null), m.accuracy !== null && m.accuracy !== undefined ? stat(t('hm_acc'), m.accuracy + '%', null, m.accuracy >= 98 ? 'ok' : 'warn') : null,
         stat(t('open_exc'), fmt(m.openExc), null, m.openExc ? 'warn' : 'ok', can('exceptions') ? '#/exceptions' : null),
         stat(t('picking'), fmt(m.orders) + ' ' + t('orders'), fmt(m.pickedPieces) + '/' + fmt(m.pieces) + ' ' + t('pieces') + ' ' + t('picked'), '', can('picking') ? '#/picking' : null),
         stat(t('held'), fmt(m.held), null, m.held ? 'warn' : '', can('picking') ? '#/picking/held' : null),
         stat(t('pend_returns'), fmt(m.pendPieces), fmt(m.pendOrders) + ' ' + t('orders')),
         stat(t('putaway_pieces'), fmt(m.putawayPieces), null, m.putawayPieces ? 'warn' : '', can('putaway') ? '#/returns/putaway' : null),
-        stat(t('no_loc'), fmt(m.noLoc), null, m.noLoc ? 'warn' : 'ok'), stat(t('gap_es'), fmt(m.gapES), null, m.gapES ? 'warn' : 'ok'), stat(t('alerts'), fmt(m.alerts), null, m.alerts ? 'bad' : 'ok')));
+        stat(t('no_loc'), fmt(m.noLoc), t('hm_items'), m.noLoc ? 'warn' : 'ok'), stat(t('gap_es'), fmt(m.gapES), t('hm_items'), m.gapES ? 'warn' : 'ok', can('compare') ? '#/compare' : null), stat(t('alerts'), fmt(m.alerts), t('hm_items'), m.alerts ? 'bad' : 'ok')));
       box.append(h('div', { class: 'card' }, h('h3', null, t('today')), h('div', { class: 'row3' }, mini(t('received'), m.recvToday), mini(t('sold'), m.soldToday), mini(t('returned'), m.retToday))));
       if (m.catRows && m.catRows.length) {
         const mx = Math.max.apply(null, m.catRows.map(r => Math.max(r[1], r[2], r[3], 1)));

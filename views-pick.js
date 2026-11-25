@@ -2,7 +2,7 @@
 Routes.picking = { icon: 'list', label: 'picking', perm: 'picking', view(main, tab) { return tab === 'held' ? pickingHeld(main) : pickingList(main); } };
 
 function pickingList(main) {
-  const F = store.get('pk:f', { from: '', to: '', category: '', location: '', status: 'open', q: '' }); let offset = 0, data = null, showF = false;
+  const F = store.get('pk:f', { from: '', to: '', category: '', location: '', status: 'open', q: '', ready: '' }); let offset = 0, data = null, showF = false;
   const sumBox = h('div'), dayBox = h('div', { class: 'chips days' }), fBox = h('div'), listBox = h('div');
   const tabs = h('div', { class: 'seg tabs' }, h('a', { class: 'on', href: '#/picking' }, t('pk_list_tab')), can('hold') ? h('a', { href: '#/picking/held' }, t('pk_held_tab')) : null);
   main.append(pageHead(t('picking'), can('sync') ? h('button', { class: 'btn small', id: 'pk-refresh', onclick: refreshShopify }, icon('refresh', 16), ' ', t('pk_refresh')) : null), tabs, sumBox, dayBox, fBox, listBox);
@@ -25,6 +25,7 @@ function pickingList(main) {
     fBox.replaceChildren(h('div', { class: 'filters' }, h('input', { class: 'inp', type: 'search', placeholder: t('pk_search'), value: F.q, onchange: e => setF({ q: e.target.value }), 'aria-label': t('pk_search') }),
       h('select', { class: 'inp sm', onchange: e => setF({ status: e.target.value }), 'aria-label': t('pk_status') }, [['open', t('pk_open')], ['done', t('pk_done')], ['all', t('pk_all')]].map(o => h('option', { value: o[0], selected: F.status === o[0] }, o[1]))),
       ),
+      h('div', { class: 'chips' }, [['', t('pk_all')], ['ready', t('pk_f_ready')], ['short', t('pk_f_short') + (data.shortOrders ? ' (' + data.shortOrders + ')' : '')]].map(x => h('button', { class: 'chip-b' + ((F.ready || '') === x[0] ? ' on' : ''), onclick: () => setF({ ready: x[0] }) }, x[1]))),
       h('div', { class: 'filters row2' }, h('button', { class: 'btn small', onclick: () => { showF = !showF; draw(); } }, icon('filter', 16), ' ', t('pk_filters')),
         h('div', { class: 'seg mini-seg' }, ['cards', 'route'].map(m => h('button', { class: store.get('pk:mode', 'cards') === m ? 'on' : '', onclick: () => { store.set('pk:mode', m); draw(); } }, t('pk_view_' + m))))),
       showF ? h('div', { class: 'filters adv' }, lab(t('pk_from'), h('input', { class: 'inp', type: 'date', value: F.from, onchange: e => setF({ from: e.target.value }) })), lab(t('pk_to'), h('input', { class: 'inp', type: 'date', value: F.to, onchange: e => setF({ to: e.target.value }) })),
@@ -47,12 +48,12 @@ function pickingList(main) {
   const moreBtn = () => data.rows.length < data.total ? h('button', { class: 'btn block', onclick: () => load(true) }, t('more') + ' (' + data.rows.length + '/' + data.total + ')') : null;
   const shopUrl = (oid, num) => data.handle ? 'https://admin.shopify.com/store/' + data.handle + '/orders' + (oid ? '/' + oid : '?query=' + encodeURIComponent(num)) : '';
   function lineRow(r, showOrder) {
-    return h('div', { class: 'pk' + (r.done ? ' done' : '') + (r.flags ? ' flag' : ''), 'data-k': r.k },
+    return h('div', { class: 'pk' + (r.done ? ' done' : '') + (r.flags ? ' flag' : '') + (r.short > 0 ? ' short' : ''), 'data-k': r.k },
       h('button', { class: 'chk' + (r.done ? ' on' : ''), role: 'checkbox', 'aria-checked': String(r.done), 'aria-label': r.title, onclick: e => toggle(r, e.currentTarget) }, r.done ? icon('check', 22) : null),
       h('div', { class: 'pk-main' }, h('div', { class: 'pk-t' }, h('b', null, r.title), ' ', h('span', { class: 'muted' }, r.cs)),
         h('div', { class: 'muted small ltr' }, r.sku + ' · ' + r.upc + (showOrder ? '' : '')),
         showOrder ? h('div', { class: 'ord-tag ltr' }, '#' + r.order, ' ', h('small', { class: 'muted' }, r.cust)) : null, r.flags ? h('div', { class: 'flag-t' }, r.flags) : null),
-      h('div', { class: 'pk-side' }, h('span', { class: 'qty big' + (r.qty > 1 ? ' multi' : '') }, '×' + r.qty), h('span', { class: 'loc' }, r.loc), h('span', { class: 'muted small' }, r.cat)),
+      h('div', { class: 'pk-side' }, h('span', { class: 'qty big' + (r.qty > 1 ? ' multi' : '') }, '×' + r.qty), r.short > 0 ? h('span', { class: 'badge bad' }, t('pk_short_line', { n: r.short, q: r.qty })) : null, h('span', { class: 'loc' }, r.loc), h('span', { class: 'muted small' }, r.cat)),
       h('button', { class: 'icon-btn', 'aria-label': 'more', onclick: () => rowMenu(r) }, icon('more', 18)));
   }
   function orderCard(g) {
@@ -60,7 +61,7 @@ function pickingList(main) {
     const card = h('section', { class: 'ocard' }), bar = h('i'), cnt = h('span', { class: 'o-cnt' }), allBtn = h('button', { class: 'btn small primary', onclick: e => markAll(e.currentTarget) });
     const url = shopUrl(g.oid, g.order);
     const head = h('header', { class: 'o-head' },
-      h('div', { class: 'o-title' }, h('b', { class: 'o-num ltr' }, '#' + g.order), g.cust ? h('span', { class: 'muted o-cust' }, g.cust) : null),
+      h('div', { class: 'o-title' }, h('b', { class: 'o-num ltr' }, '#' + g.order), rows.every(r => r.ready !== false) ? h('span', { class: 'badge ok' }, t('pk_ready')) : h('span', { class: 'badge bad' }, t('pk_short_badge')), g.cust ? h('span', { class: 'muted o-cust' }, g.cust) : null),
       h('div', { class: 'o-acts' }, url ? h('a', { class: 'btn small', target: '_blank', rel: 'noopener', href: url, 'aria-label': t('pk_open_shopify') }, icon('ext', 16), ' Shopify') : null,
         h('button', { class: 'icon-btn', 'aria-label': 'more', onclick: () => rowMenu(rows[0], true) }, icon('more', 18))),
       h('div', { class: 'o-prog' }, h('div', { class: 'o-bar' }, bar), cnt, allBtn));
@@ -174,6 +175,60 @@ Routes.adjustments = { icon: 'check', label: 'adjustments', perm: 'adjust_approv
     } catch (e) { box.replaceChildren(errorBox(e, load)); }
   }
   load();
+} };
+
+/* ---- الشحن (J&T) ---- */
+const C_RES = ['جاري المتابعة', 'استلام ناقص', 'زيادة عن J&T', 'مسجّل مرتجع و J&T مش راجّعه', 'اتسكن وغير موجود في تقرير J&T', 'مستلمة', 'في الطريق', 'تم التسليم'], C_TONE = ['warn', 'bad', 'warn', 'bad', 'warn', 'ok', '', 'ok'];
+const cRes = r => { const i = C_RES.indexOf(r); return i < 0 ? r : t('cr' + i); };
+const cTone = r => C_TONE[C_RES.indexOf(r)] || '';
+Routes.courier = { icon: 'truck', label: 'courier', perm: 'courier', view(main) {
+  const F = store.get('cr:f', { days: 30, result: 'جاري المتابعة', group: '', q: '', vip: false }); let rows = [], total = 0, handle = '';
+  const sumBox = h('div'), listBox = h('div'), chips = h('div', { class: 'chips' }), fBox = h('div');
+  main.append(pageHead(t('courier')), chips, sumBox, h('h3', { class: 'sec-h' }, t('c_list')), fBox, listBox);
+  const save = () => store.set('cr:f', F);
+  const drawChips = () => chips.replaceChildren(...[[7, t('d7')], [30, t('d30')], [90, '90 ' + t('pk_days')], [0, t('pk_all')]].map(x => h('button', { class: 'chip-b' + (F.days === x[0] ? ' on' : ''), onclick: () => { F.days = x[0]; save(); drawChips(); loadSum(); } }, x[1])));
+  const mini = (l, v, tone, onclick) => h(onclick ? 'button' : 'div', { class: 'mini' + (tone ? ' t-' + tone : ''), onclick }, h('div', { class: 'mini-v' }, v), h('div', { class: 'mini-l' }, l));
+  const hbar = (label, v, mx) => h('div', { class: 'bars' }, h('div', { class: 'bars-l' }, label), h('div', { class: 'bars-b' }, h('div', { class: 'bar a', style: { width: Math.max(2, v / mx * 100) + '%' } }, h('span', null, fmt(v)))));
+  async function loadSum() {
+    sumBox.replaceChildren(spinner());
+    try {
+      const d = await api('courierSummary', { days: F.days }); sumBox.replaceChildren();
+      if (!d.hasData) { sumBox.append(h('div', { class: 'banner warn' }, t('c_nodata'))); return; }
+      sumBox.append(h('div', { class: 'muted small' }, t('c_last') + ': ' + (d.lastImport || '—')));
+      sumBox.append(h('div', { class: 'row3 sum' }, mini(t('c_total'), fmt(d.total)), mini(t('c_delivery'), d.deliveryRate === null ? '—' : d.deliveryRate + '%', 'ok'), mini(t('c_return'), d.returnRate === null ? '—' : d.returnRate + '%', d.returnRate > 20 ? 'warn' : '')));
+      const rc = d.recon || {};
+      sumBox.append(h('div', { class: 'card' }, h('h3', null, t('c_recon')), h('div', { class: 'grid stats' }, C_RES.slice(0, 6).filter((r, i) => rc[r] || i < 2 || i === 5).map(r => mini(cRes(r), fmt(rc[r] || 0), cTone(r) && rc[r] ? cTone(r) : '', () => { F.result = r; save(); drawF(); loadList(); }))),
+        rc['جاري المتابعة'] ? h('div', { class: 'aging' }, h('div', { class: 'muted small' }, t('c_aging')), h('div', { class: 'ag-row' }, [['0-3', d.aging.d0_3], ['4-7', d.aging.d4_7], ['8+', d.aging.d8]].map(x => h('div', { class: 'ag' + (x[0] === '8+' && x[1] ? ' old' : '') }, h('b', null, fmt(x[1])), h('small', null, h('bdi', { class: 'ltr' }, x[0]), ' ' + t('pk_days'))))), h('div', { class: 'muted small' }, fmt(d.pendingPieces) + ' ' + t('pieces'))) : null));
+      const sk = Object.keys(d.status), mx = Math.max.apply(null, sk.map(k => d.status[k]).concat([1]));
+      sumBox.append(h('div', { class: 'card' }, h('h3', null, t('c_status')), sk.sort((a, b) => d.status[b] - d.status[a]).map(k => hbar(k, d.status[k], mx)), h('div', { class: 'muted small' }, Object.keys(d.types).map(k => k + ' ' + d.types[k]).join(' · '))));
+      if (d.reasons.length) { const m2 = d.reasons[0].n; sumBox.append(h('div', { class: 'card' }, h('h3', null, t('c_reasons')), d.reasons.map(r => hbar(r.reason, r.n, m2)))); }
+      sumBox.append(h('div', { class: 'card' }, h('h3', null, t('c_accounts')), h('div', { class: 'ptbl' }, h('div', { class: 'ptr head c4' }, h('span', null, t('c_account')), h('span', null, t('c_total')), h('span', null, t('c_signed')), h('span', null, t('c_returned'))),
+        d.accounts.map(a => h('div', { class: 'ptr c4' }, h('b', { class: 'ltr' }, a.account, a.vip ? ' ' : '', a.vip ? badge('VIP', 'brand') : null), h('span', null, fmt(a.total)), h('span', null, fmt(a.signed)), h('span', null, fmt(a.returned)))))));
+    } catch (e) { sumBox.replaceChildren(errorBox(e, loadSum)); }
+  }
+  function drawF() {
+    fBox.replaceChildren(h('div', { class: 'filters' }, h('select', { class: 'inp sm', onchange: e => { F.result = e.target.value; save(); loadList(); } }, h('option', { value: '' }, t('pk_all')), C_RES.map(r => h('option', { value: r, selected: F.result === r }, cRes(r)))),
+      h('select', { class: 'inp sm', onchange: e => { F.group = e.target.value; save(); loadList(); } }, [['', t('pk_all')], ['return', t('g_return')], ['exchange_return', t('g_exret')], ['exchange', t('g_ex')]].map(o => h('option', { value: o[0], selected: F.group === o[0] }, o[1]))),
+      h('input', { class: 'inp', type: 'search', placeholder: t('c_search'), value: F.q, dir: 'ltr', onchange: e => { F.q = e.target.value; save(); loadList(); } }),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: F.vip, onchange: e => { F.vip = e.target.checked; save(); loadList(); } }), h('span', null, 'VIP'))));
+  }
+  async function loadList(more) {
+    if (!more) { rows = []; listBox.replaceChildren(spinner()); }
+    try {
+      const d = await api('courierList', { result: F.result, group: F.group, q: F.q, vip: F.vip, offset: rows.length, limit: 100 }); rows = rows.concat(d.rows); total = d.total; handle = d.handle; drawList();
+    } catch (e) { listBox.replaceChildren(errorBox(e, () => loadList())); }
+  }
+  function drawList() {
+    if (!rows.length) return listBox.replaceChildren(h('div', { class: 'card empty' }, t('none')));
+    listBox.replaceChildren(h('div', { class: 'cards-list' }, rows.map(r => h('div', { class: 'ccard' },
+      h('div', { class: 'cc-top' }, h('b', { class: 'ltr' }, r.waybill || '—'), badge(cRes(r.result), cTone(r.result))),
+      h('div', { class: 'cc-mid' }, r.order ? (handle ? h('a', { class: 'ltr', href: 'https://admin.shopify.com/store/' + handle + '/orders?query=' + encodeURIComponent(r.order), target: '_blank', rel: 'noopener' }, '#' + r.order) : h('span', { class: 'ltr' }, '#' + r.order)) : null,
+        h('span', { class: 'muted' }, ' · ' + t('g_' + (r.group === 'return' ? 'return' : r.group === 'exchange' ? 'ex' : 'exret'))), r.vip ? badge('VIP', 'brand') : null, r.status ? h('span', { class: 'muted small ltr' }, ' · ' + r.status) : null),
+      r.reason ? h('div', { class: 'small' }, r.reason) : null,
+      h('div', { class: 'cc-nums muted small' }, r.age !== '' ? h('span', { class: 'age' + (r.age >= 8 ? ' old' : '') }, r.age + ' ' + t('pk_days')) : null, h('span', null, t('c_cpcs') + ' ' + r.courierPcs), h('span', null, t('c_reg') + ' ' + r.registered), h('span', null, t('c_scan') + ' ' + r.scanned)),
+      r.note ? h('div', { class: 'muted small' }, r.note) : null))), rows.length < total ? h('button', { class: 'btn block', onclick: () => loadList(true) }, t('more') + ' (' + rows.length + '/' + total + ')') : null);
+  }
+  drawChips(); drawF(); loadSum(); loadList();
 } };
 
 /* ---- تشغيل ---- */

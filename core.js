@@ -98,8 +98,9 @@ const ICONS = {
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', alert: 'M12 3l10 18H2zM12 10v5M12 18h.01', chart: 'M4 20V10M10 20V4M16 20v-8M22 20H2',
   users: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8', cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z',
   x: 'M6 6l12 12M18 6L6 18', camera: 'M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  truck: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7.5 19a1.5 1.5 0 1 0 .01 0M17.5 19a1.5 1.5 0 1 0 .01 0',
   check: 'M5 12l5 5L20 7', pause: 'M8 5v14M16 5v14', refresh: 'M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5', ext: 'M14 3h7v7M21 3l-9 9M10 5H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-5',
-  box: 'M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', more: 'M5 12h.01M12 12h.01M19 12h.01', bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', filter: 'M3 5h18l-7 8v6l-4 2v-8z', plus: 'M12 5v14M5 12h14', minus: 'M5 12h14'
+  box: 'M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', more: 'M5 12h.01M12 12h.01M19 12h.01', bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', filter: 'M3 5h18l-7 8v6l-4 2v-8z', scale: 'M12 3v18M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z', clip: 'M9 4h6l1 2h3v15H5V6h3zM9 13l2 2 4-4', chat: 'M4 5h16v11H9l-5 4z', plus: 'M12 5v14M5 12h14', minus: 'M5 12h14'
 };
 function icon(n, size) {
   const s = size || 20, ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');

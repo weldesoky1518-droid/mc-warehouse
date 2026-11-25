@@ -85,14 +85,16 @@ Routes.returns = { icon: 'undo', label: 'returns', perm: 'returns', view(main, t
 } };
 function returnsScan(box) {
   let log = store.get('rt:log', []).slice(0, 40); const fbBox = h('div', { class: 'fb-box' }), list = h('div', { class: 'list card' }), pendEl = h('span', { class: 'badge warn', hidden: true });
-  const queue = new ScanQueue('returns', items => api('returnsScan', { scans: items.map(x => ({ id: x.id, upc: x.upc })) }), {
+  const queue = new ScanQueue('returns', items => api('returnsScan', { scans: items.map(x => ({ id: x.id, upc: x.upc, cond: x.cond })) }), {
     change: n => { pendEl.hidden = !n; pendEl.textContent = t('pending') + ': ' + n; }, offline: () => toast(t('offline'), 'warn', 2500),
     result: r => { r.results.forEach(x => { const it = log.find(l => l.id === x.id); if (!it) return; Object.assign(it, { pending: false, status: x.status, location: x.location, title: x.title, sku: x.sku, order: x.order, match: x.match });
         if (x.status !== 'DUP') { fbBox.replaceChildren(feedback(x.status === 'OK' ? (x.match === 'MATCHED' ? 'ok' : 'warn') : 'bad', (x.title || x.upc) + (x.location ? ' → ' + t('put_in') + ' ' + x.location : ''), x.status === 'UNKNOWN' ? t('st_UNKNOWN') : (x.match === 'MATCHED' ? t('matched') + ' ' + x.order : t('unmatched')))); beep(x.status === 'OK' ? 'ok' : 'warn'); } }); store.set('rt:log', log); draw(); },
     fail: e => toast(e.message, 'bad', 6000)
   });
+  let cond = store.get('rt:cond', 'سليم');
+  const condBox = h('div', { class: 'seg cond' }); const drawCond = () => condBox.replaceChildren(...[['سليم', 'rt_c_ok'], ['تالف', 'rt_c_bad'], ['حجر', 'rt_c_hold']].map(x => h('button', { class: cond === x[0] ? 'on' : '', onclick: () => { cond = x[0]; store.set('rt:cond', cond); drawCond(); } }, t(x[1])))); drawCond();
   const sp = scanPanel({ onScan: raw => { const upc = raw.trim(); if (!BC_OK.test(upc)) { beep('bad'); fbBox.replaceChildren(feedback('bad', t('st_INVALID'), upc)); return; }
-    const it = { id: uid(), upc, pending: true, time: new Date().toTimeString().slice(0, 5) }; log.unshift(it); log = log.slice(0, 40); beep('ok'); queue.add({ id: it.id, upc }); draw(); } });
+    const it = { id: uid(), upc, cond, pending: true, time: new Date().toTimeString().slice(0, 5) }; log.unshift(it); log = log.slice(0, 40); beep('ok'); queue.add({ id: it.id, upc, cond }); draw(); } });
   function logRow(l) {
     const tone = l.pending ? '' : stTone(l.status === 'OK' ? (l.match === 'MATCHED' ? 'OK' : 'DUP') : l.status);
     return h('div', { class: 'li static ' + tone },
@@ -100,7 +102,7 @@ function returnsScan(box) {
       h('div', { class: 'li-side' }, l.pending ? badge('…', 'warn') : h('span', { class: 'loc' }, l.location || '—'), h('small', { class: 'muted' }, l.time || '')));
   }
   function draw() { list.replaceChildren(...(log.length ? log.map(logRow) : [h('div', { class: 'empty' }, t('none'))])); }
-  box.append(sp.el, h('div', { class: 'row' }, h('h4', null, t('rt_session')), pendEl), fbBox, list); draw(); sp.focus(); if (queue.pending) queue.kick(0);
+  box.append(h('div', { class: 'muted small' }, t('rt_cond')), condBox, sp.el, h('div', { class: 'row' }, h('h4', null, t('rt_session')), pendEl), fbBox, list); draw(); sp.focus(); if (queue.pending) queue.kick(0);
   return () => sp.destroy();
 }
 function returnsPutaway(box) {
