@@ -13,19 +13,19 @@ function cmpMain(box) {
   const sum = h('div'), list = h('div');
   const q = h('input', { class: 'inp', type: 'search', placeholder: t('cmp_search'), value: F.q, 'aria-label': t('cmp_search'), onchange: e => { F.q = e.target.value; store.set('cmp:f', F); load(); } });
   const chips = h('div', { class: 'chips' });
-  const drawChips = () => chips.replaceChildren([['gap', t('cmp_f_gap')], ['es', t('cmp_f_es')], ['ae', t('cmp_f_ae')], ['noshop', t('cmp_f_noshop')], ['all', t('pk_all')]].map(x => h('button', { class: 'chip-b' + (F.f === x[0] ? ' on' : ''), onclick: () => { F.f = x[0]; store.set('cmp:f', F); drawChips(); load(); } }, x[1])));
+  const drawChips = () => chips.replaceChildren([['gap', t('cmp_f_gap')], ['es', t('cmp_f_es')]].concat(data && data.opening ? [['ae', t('cmp_f_ae')]] : [], [['noshop', t('cmp_f_noshop')], ['all', t('pk_all')]]).map(x => h('button', { class: 'chip-b' + (F.f === x[0] ? ' on' : ''), onclick: () => { F.f = x[0]; store.set('cmp:f', F); drawChips(); load(); } }, x[1])));
   box.append(q, chips, sum, list);
   async function load(more) {
     if (!more) { offset = 0; list.replaceChildren(spinner()); }
     try {
       const d = await api('compare', { q: F.q, f: F.f, offset, limit: 100 });
-      if (more && data) { data.rows = data.rows.concat(d.rows); data.total = d.total; } else data = d; offset = data.rows.length; draw();
+      if (more && data) { data.rows = data.rows.concat(d.rows); data.total = d.total; } else data = d; offset = data.rows.length; drawChips(); draw();
     } catch (e) { list.replaceChildren(errorBox(e, () => load())); }
   }
   function draw() {
     const tt = data.totals, mini = (l, v, sub) => h('div', { class: 'mini' }, h('div', { class: 'mini-v' }, fmt(v)), h('div', { class: 'mini-l' }, l), sub ? h('small', { class: 'muted' }, sub) : null);
     sum.replaceChildren(h('div', { class: 'row3 sum' }, mini('ERP · ' + t('pieces'), tt.e), mini('Shopify · ' + t('pieces'), tt.s), data.opening ? mini(t('actual') + ' · ' + t('pieces'), tt.a) : mini(t('items'), tt.items)),
-      h('div', { class: 'muted small' }, fmt(data.total) + ' ' + t('items') + (data.opening ? '' : ' · ' + t('no_opening'))));
+      h('div', { class: 'muted small' }, fmt(data.total) + ' ' + t('items') + (data.opening || data.onhand ? '' : ' · ' + t('no_opening'))));
     if (!data.rows.length) return list.replaceChildren(h('div', { class: 'card empty' }, t('none')));
     list.replaceChildren(h('div', { class: 'list card' }, data.rows.map(r => h('div', { class: 'li static cmp' },
       h('div', { class: 'li-main' }, h('b', null, r.t || r.sku || r.u), h('div', { class: 'muted small ltr' }, (r.sku ? r.sku + ' · ' : '') + r.u + (r.loc ? ' · ' + r.loc : ''))),
@@ -128,3 +128,106 @@ Routes.ask = { icon: 'chat', label: 'ask', perm: 'ask', view(main) {
     catch (e) { wait.className = 'ask-a err'; wait.textContent = e.message; }
   }
 } };
+
+/* ===== v7.1 ===== */
+/* ---- تابين الاستعلام (عادي / شامل) ---- */
+function lkTabs(cur) { return h('div', { class: 'seg tabs' }, [['lookup', 'lk_tab_n'], ['lookupall', 'lk_tab_all']].map(x => h('a', { class: cur === x[0] ? 'on' : '', href: '#/' + x[0] }, t(x[1])))); }
+Routes.lookupall = { icon: 'search', label: 'lookup', perm: 'lookup', nav: false, view(main, param) {
+  const out = h('div'); const sp = scanPanel({ placeholder: t('lka_ph'), onScan: q => run(q) });
+  main.append(pageHead(t('lookup')), lkTabs('lookupall'), h('div', { class: 'muted small' }, t('lka_hint')), sp.el, out);
+  const kv = (k, v, tone) => h('div', { class: 'kv ' + (tone || '') }, h('div', { class: 'kv-k' }, k), h('div', { class: 'kv-v' }, v));
+  const repList = r => h('ul', { class: 'report' }, r.map(x => h('li', { class: /تنبيه|خطر|ملغي|أقل من المطلوب|مالوش مكان/.test(x) ? 'warn' : '' }, x)));
+  async function run(q) {
+    q = (q || '').trim(); if (!q) return; out.replaceChildren(spinner());
+    try {
+      const r = await api('lookupAll', { q }, { timeout: 60000 });
+      out.replaceChildren();
+      if (r.kind === 'order') {
+        if (!r.found) { beep('bad'); out.append(h('div', { class: 'card empty' }, t('lk_not_found') + ': #' + r.order)); return; }
+        beep('ok');
+        out.append(h('div', { class: 'card detail' }, h('div', { class: 'row' }, h('h3', { class: 'ltr' }, '#' + r.order), r.cancelled ? h('span', { class: 'badge bad' }, t('lka_cancelled')) : null), repList(r.report),
+          h('div', { class: 'list' }, r.lines.map(l => h('div', { class: 'li static ' + (l.ok ? '' : 'warn') }, h('div', { class: 'li-main' }, h('b', null, l.title || l.sku), h('div', { class: 'muted small ltr' }, (l.sku || '') + ' · ' + (l.upc || ''))),
+            h('div', { class: 'li-side' }, h('span', { class: 'loc' }, l.location || '—'), h('small', null, '×' + l.qty + ' · ' + t('lka_avail') + ' ' + fmt(l.avail))))))));
+        return;
+      }
+      if (!r.items.length) { beep('bad'); out.append(h('div', { class: 'card empty' }, t('lk_not_found') + ': ' + q)); return; }
+      beep('ok'); if (r.total > r.items.length) out.append(h('div', { class: 'muted small' }, t('lka_first', { n: r.items.length, t: r.total })));
+      r.items.forEach(it => out.append(h('div', { class: 'card detail' }, h('div', { class: 'detail-h' }, h('div', null, h('h3', null, it.title || it.sku), h('div', { class: 'muted ltr small' }, it.sku + ' · ' + it.upc)),
+        h('div', { class: 'bigloc' }, h('small', null, t('location')), h('b', null, it.location || '—'))),
+        h('div', { class: 'grid kvs' }, it.hasOpening ? kv(t('actual'), fmt(it.actual), 'brand') : null, kv(t('erp'), fmt(it.erp), it.hasOpening ? '' : 'brand'), kv(t('shopify'), it.shopifyLive !== null ? fmt(it.shopifyLive) : fmt(it.shopify)), kv(t('pend_demand'), fmt(it.pendingDemand))),
+        repList(it.report))));
+    } catch (e) { out.replaceChildren(errorBox(e)); }
+  }
+  if (param) run(param); else sp.focus();
+  return () => sp.destroy();
+} };
+
+/* ---- رفع الملفات من التطبيق ---- */
+const IMP_KINDS = [['onhand', 'imp_onhand', 'imp_onhand_d'], ['courier', 'imp_courier', 'imp_courier_d'], ['sales', 'imp_sales', 'imp_sales_d']];
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; s.onload = () => window.XLSX ? ok() : no(new Error(t('imp_lib_err'))); s.onerror = () => no(new Error(t('imp_lib_err'))); document.head.append(s); });
+}
+const pad2 = n => String(n).padStart(2, '0');
+const dStr = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+async function fileRows(file) {
+  await loadXlsx();
+  const buf = await file.arrayBuffer(), wb = XLSX.read(buf, { type: 'array', cellDates: true }), ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: false });
+  return rows.map(r => r.map(v => v instanceof Date ? dStr(v) : (v === null || v === undefined ? '' : v))).filter(r => r.some(v => v !== ''));
+}
+Routes.import = { icon: 'upload', label: 'import', perm: 'import', view(main) {
+  const box = h('div'), bar = h('div', { class: 'bar' }, h('i')), st = h('div', { class: 'muted' }); bar.style.display = 'none';
+  main.append(pageHead(t('import')), h('div', { class: 'banner' }, t('imp_note')), box, bar, st);
+  const cards = IMP_KINDS.map(k => {
+    const inp = h('input', { type: 'file', accept: '.xlsx,.xls,.csv', hidden: true });
+    inp.addEventListener('change', async () => { const f = inp.files[0]; inp.value = ''; if (f) await go(k[0], f); });
+    return h('div', { class: 'card' }, h('h3', null, t(k[1])), h('div', { class: 'muted small' }, t(k[2])), inp, h('button', { class: 'btn primary block', onclick: () => inp.click() }, icon('upload', 16), ' ', t('imp_pick')));
+  });
+  box.append(...cards);
+  async function go(kind, file) {
+    try {
+      st.textContent = t('imp_reading'); const rows = await fileRows(file);
+      if (rows.length < 2) throw new Error(t('imp_empty'));
+      if (!(await confirmBox(t('imp_confirm', { n: rows.length - 1, f: file.name })))) { st.textContent = ''; return; }
+      const cols = Math.max(...rows.slice(0, 20).map(r => r.length)), size = Math.max(100, Math.min(2000, Math.floor(40000 / cols)));
+      bar.style.display = ''; let res = null;
+      for (let i = 0, s = 0; i < rows.length; i += size, s++) {
+        const last = i + size >= rows.length; st.textContent = t('imp_sending', { a: Math.min(i + size, rows.length), b: rows.length }); bar.firstChild.style.width = Math.round(Math.min(i + size, rows.length) / rows.length * 100) + '%';
+        res = await api('importChunk', { kind, seq: s, last, rows: rows.slice(i, i + size) }, { timeout: last ? 290000 : 60000 });
+      }
+      bar.style.display = 'none'; st.textContent = ''; beep('ok'); toast((res && res.message) || t('imp_done'), 'ok', 9000); store.set('cache:home', null);
+    } catch (e) { bar.style.display = 'none'; st.textContent = ''; toast(e.message, 'bad', 9000); }
+  }
+} };
+
+/* ---- الإعدادات وقواعد الأماكن ---- */
+Routes.config = { icon: 'cog', label: 'config', perm: 'config', view(main, tab) {
+  const tabs = h('div', { class: 'seg tabs' }, [['', 'cfg_rules'], ['settings', 'cfg_settings']].map(x => h('a', { class: (tab || '') === x[0] ? 'on' : '', href: '#/config' + (x[0] ? '/' + x[0] : '') }, t(x[1]))));
+  const box = h('div'); main.append(pageHead(t('config')), tabs, box);
+  return tab === 'settings' ? cfgSettings(box) : cfgRules(box);
+} };
+function cfgRules(box) {
+  const F = { q: '', empty: false }, list = h('div'), info = h('div', { class: 'muted small' });
+  const q = h('input', { class: 'inp', type: 'search', placeholder: t('cfg_search'), 'aria-label': t('cfg_search'), onchange: e => { F.q = e.target.value; load(); } });
+  const only = h('label', { class: 'check' }, h('input', { type: 'checkbox', onchange: e => { F.empty = e.target.checked; load(); } }), h('span', null, t('cfg_only_empty')));
+  const apply = h('button', { class: 'btn primary block', onclick: e => busy(e.currentTarget, async () => { const r = await api('rulesApply', {}, { timeout: 290000 }); toast(r.message, 'ok', 6000); load(); }) }, t('cfg_apply'));
+  box.append(h('div', { class: 'muted small' }, t('cfg_rules_hint')), q, only, info, list, apply);
+  async function load() { list.replaceChildren(spinner()); try { const d = await api('rulesList', F); info.textContent = d.total + ' · ' + t('cfg_empty') + ': ' + d.empty; draw(d.rows); } catch (e) { list.replaceChildren(errorBox(e, load)); } }
+  function draw(rows) {
+    if (!rows.length) return list.replaceChildren(h('div', { class: 'card empty' }, t('none')));
+    list.replaceChildren(h('div', { class: 'list card' }, rows.map(r => {
+      const z = h('input', { class: 'inp sm', dir: 'ltr', placeholder: t('cfg_zone'), value: r.zone, 'aria-label': t('cfg_zone') }), k = h('input', { class: 'inp sm', dir: 'ltr', placeholder: t('cfg_rack'), value: r.rack, 'aria-label': t('cfg_rack') }), s = h('input', { class: 'inp sm', dir: 'ltr', placeholder: t('cfg_shelf'), value: r.shelf, 'aria-label': t('cfg_shelf') });
+      const save = h('button', { class: 'btn small', onclick: e => busy(e.currentTarget, async () => { await api('rulesSave', { key: r.key, zone: z.value, rack: k.value, shelf: s.value }); toast(t('saved'), 'ok'); }) }, t('save'));
+      return h('div', { class: 'li static rule' }, h('div', { class: 'li-main' }, h('b', { class: 'ltr' }, r.key), h('div', { class: 'muted small' }, r.level + ' · ' + t('cfg_matched') + ' ' + fmt(r.matched))), h('div', { class: 'rule-in' }, z, k, s, save));
+    })));
+  }
+  load();
+}
+function cfgSettings(box) {
+  box.append(spinner());
+  api('configList').then(d => box.replaceChildren(h('div', { class: 'muted small' }, t('cfg_set_hint')), h('div', { class: 'list card' }, d.rows.map(r => {
+    const inp = h('input', { class: 'inp sm', dir: 'auto', value: r.value, 'aria-label': r.key });
+    return h('div', { class: 'li static rule' }, h('div', { class: 'li-main' }, h('b', { class: 'ltr' }, r.key), h('div', { class: 'muted small' }, r.note)), h('div', { class: 'rule-in' }, inp, h('button', { class: 'btn small', onclick: e => busy(e.currentTarget, async () => { await api('configSet', { key: r.key, value: inp.value }); toast(t('saved'), 'ok'); }) }, t('save'))));
+  })))).catch(e => box.replaceChildren(errorBox(e, () => location.reload())));
+}

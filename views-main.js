@@ -11,8 +11,17 @@ function badge(text, tone) { return h('span', { class: 'badge ' + (tone || '') }
 Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
   const shBox = h('div', { class: 'muted small sh-line' });
   async function shStatus() { try { const s = await api('shopifyStatus'); shBox.textContent = s.running ? t('hm_sh_running') + ' (' + fmt(s.count) + ')' : (s.last ? t('hm_sh_last') + ': ' + s.last : ''); } catch (e) {} }
-  async function shRefresh(e) { await busy(e.currentTarget, async () => { toast(t('hm_sh_running'), '', 4000); const r = await api('shopifyRefresh', {}, { timeout: 290000 }); toast(r.message, r.partial ? 'warn' : 'ok', 7000); shStatus(); load(); }); }
-  const box = h('div'); main.append(pageHead(t('home'), can('sync') ? h('button', { class: 'btn small', onclick: shRefresh }, icon('refresh', 16), ' ', t('hm_sh_refresh')) : null, can('sync') ? h('button', { class: 'btn small', onclick: async e => { await busy(e.currentTarget, () => api('refreshStock', {}, { timeout: 280000 })); toast(t('saved'), 'ok'); load(); } }, icon('refresh', 16), ' ', t('refresh_stock')) : null), shBox, box);
+  async function shRefresh(e) {
+    await busy(e.currentTarget, async () => {
+      const steps = [['hm_s1', 'shopifyRefresh', 290000], ['hm_s2', 'pickingRefresh', 290000], ['hm_s3', 'refreshStock', 120000]], notes = [];
+      for (const [k, act, to] of steps) {
+        shBox.textContent = t('hm_all_steps', { s: t(k) });
+        try { const r = await api(act, {}, { timeout: to }); if (r.partial) notes.push(r.message); } catch (err) { notes.push(t(k) + ': ' + err.message); }
+      }
+      toast(notes.length ? notes.join(' | ') : t('hm_all_ok'), notes.length ? 'warn' : 'ok', 9000); shStatus(); load();
+    });
+  }
+  const box = h('div'); main.append(pageHead(t('home'), can('sync') ? h('button', { class: 'btn small', onclick: shRefresh }, icon('refresh', 16), ' ', t('hm_all_btn')) : null, can('sync') ? h('button', { class: 'btn small', onclick: async e => { await busy(e.currentTarget, () => api('refreshStock', {}, { timeout: 280000 })); toast(t('saved'), 'ok'); load(); } }, icon('refresh', 16), ' ', t('refresh_stock')) : null), shBox, box);
   shStatus();
   async function load() {
     const cached = store.get('cache:home', null); if (cached) draw(cached); else box.replaceChildren(spinner());   // نعرض آخر نسخة فورًا ونحدّث في الخلفية
@@ -21,10 +30,10 @@ Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
   function draw(m) {
     {
       box.replaceChildren();
-      if (!m.opening) box.append(h('div', { class: 'banner warn' }, t('no_opening')));
+      if (!m.opening && !m.onhand) box.append(h('div', { class: 'banner warn' }, t('no_opening')));
       box.append(h('div', { class: 'grid stats' },
-        stat(t('actual') + ' · ' + t('hm_pieces'), m.opening ? fmt(m.actual) : '—', m.opening && m.actualItems !== null ? fmt(m.actualItems) + ' ' + t('hm_items') : null, 'brand'),
-        stat(t('erp') + ' · ' + t('hm_pieces'), fmt(m.erp), fmt(m.erpItems) + ' ' + t('hm_items'), '', can('compare') ? '#/compare' : null),
+        m.onhand ? null : stat(t('actual') + ' · ' + t('hm_pieces'), m.opening ? fmt(m.actual) : '—', m.opening && m.actualItems !== null ? fmt(m.actualItems) + ' ' + t('hm_items') : null, 'brand'),
+        stat(t('erp') + (m.onhand ? ' ' + t('hm_is_actual') : '') + ' · ' + t('hm_pieces'), fmt(m.erp), fmt(m.erpItems) + ' ' + t('hm_items'), m.onhand ? 'brand' : '', can('compare') ? '#/compare' : null),
         stat(t('shopify') + ' · ' + t('hm_pieces'), fmt(m.shopifyAll), fmt(m.shopifyVariants) + ' ' + t('hm_variants') + ' · ' + t('hm_matched') + ': ' + fmt(m.shopify), '', can('compare') ? '#/compare' : null),
         stat(t('hm_ready'), fmt(m.readyOrders), null, m.readyOrders ? 'ok' : '', can('picking') ? '#/picking' : null), stat(t('hm_short'), fmt(m.shortOrders), null, m.shortOrders ? 'bad' : 'ok', can('picking') ? '#/picking' : null),
         stat(t('hm_reorder'), fmt(m.reorderCount), null, m.reorderCount ? 'warn' : '', can('compare') ? '#/compare/reorder' : null), m.accuracy !== null && m.accuracy !== undefined ? stat(t('hm_acc'), m.accuracy + '%', null, m.accuracy >= 98 ? 'ok' : 'warn') : null,
@@ -51,7 +60,7 @@ Routes.home = { icon: 'home', label: 'home', perm: 'home', view(main) {
 
 Routes.lookup = { icon: 'search', label: 'lookup', perm: 'lookup', view(main, param) {
   const out = h('div'); const sp = scanPanel({ placeholder: t('lk_ph'), onScan: q => run(q) });
-  main.append(pageHead(t('lookup')), sp.el, out);
+  main.append(pageHead(t('lookup')), lkTabs('lookup'), sp.el, out);
   async function run(q) {
     out.replaceChildren(spinner());
     try {
@@ -68,11 +77,11 @@ Routes.lookup = { icon: 'search', label: 'lookup', perm: 'lookup', view(main, pa
     const gap = d.gapActualErp;
     return h('div', { class: 'card detail' }, d.notInErp ? h('div', { class: 'banner warn' }, t('not_in_erp')) : null, h('div', { class: 'detail-h' }, h('div', null, h('h3', null, d.title || d.sku), h('div', { class: 'muted ltr' }, d.sku + ' · ' + d.upc)),
       h('div', { class: 'bigloc' }, h('small', null, t('location')), h('b', null, d.location || '—'), d.location2 ? h('small', null, t('location2') + ': ' + d.location2) : null)),
-      h('div', { class: 'grid kvs' }, kv(t('actual'), d.hasOpening ? fmt(d.actual) : '—', 'brand'), kv(t('erp'), fmt(d.erp)), kv(t('shopify'), fmt(d.shopify)),
+      h('div', { class: 'grid kvs' }, d.hasOpening ? kv(t('actual'), fmt(d.actual), 'brand') : null, kv(t('erp'), fmt(d.erp), d.hasOpening ? '' : 'brand'), kv(t('shopify'), fmt(d.shopify)),
         kv(t('pend_demand'), fmt(d.pendingDemand), d.pendingDemand > (d.actual || 0) && d.hasOpening ? 'bad' : ''), kv(t('returns_area'), fmt(d.returnsArea)),
-        kv(t('gap_ae'), d.hasOpening && gap !== null ? fmt(gap) : '—', d.hasOpening && gap ? 'warn' : ''), kv(t('erp_shopify'), fmt(d.erpShopify), d.erpShopify ? 'warn' : '')),
+        d.hasOpening ? kv(t('gap_ae'), gap !== null ? fmt(gap) : '—', gap ? 'warn' : '') : null, kv(t('erp_shopify'), fmt(d.erpShopify), d.erpShopify ? 'warn' : '')),
       h('div', { class: 'muted small' }, [d.category && t('category') + ': ' + d.category, d.season && t('season') + ': ' + d.season, d.model && t('model') + ': ' + d.model, d.rule && '(' + d.rule + ')'].filter(Boolean).join('  ·  ')),
-      h('div', { class: 'muted small' }, [t('opening') + ' ' + fmt(d.opening), '+' + fmt(d.received) + ' ' + t('received'), '−' + fmt(d.sold) + ' ' + t('sold'), '+' + fmt(d.returned) + ' ' + t('returned'), fmt(d.adjust) + ' adj'].join('  ·  ')),
+      d.hasOpening ? h('div', { class: 'muted small' }, [t('opening') + ' ' + fmt(d.opening), '+' + fmt(d.received) + ' ' + t('received'), '−' + fmt(d.sold) + ' ' + t('sold'), '+' + fmt(d.returned) + ' ' + t('returned'), fmt(d.adjust) + ' adj'].join('  ·  ')) : null,
       can('adjust') ? h('button', { class: 'btn small', onclick: () => adjust(d) }, t('adjust')) : null,
       d.movements.length ? h('div', null, h('h4', null, t('moves')), h('div', { class: 'tbl' }, d.movements.map(m => h('div', { class: 'tr' }, h('span', { class: 'ltr' }, m.time), h('b', null, m.type), h('span', { class: m.qty < 0 ? 'neg' : 'pos' }, (m.qty > 0 ? '+' : '') + m.qty), h('span', { class: 'muted' }, m.reason || m.ref))))) : null);
   }
