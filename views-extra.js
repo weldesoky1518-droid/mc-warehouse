@@ -121,10 +121,11 @@ Routes.ask = { icon: 'chat', label: 'ask', perm: 'ask', view(main) {
   const chips = h('div', { class: 'chips' }, ['ask_q1', 'ask_q2', 'ask_q3'].map(k => h('button', { class: 'chip-b', onclick: () => { inp.value = t(k); send(); } }, t(k))));
   const btn = h('button', { class: 'btn primary', onclick: () => send() }, t('ask_send'));
   main.append(pageHead(t('ask')), h('div', { class: 'banner' }, t('ask_note')), chips, log, h('div', { class: 'ask-in' }, inp, btn));
+  const hist = [];
   async function send() {
     const q = inp.value.trim(); if (!q) return; inp.value = '';
     log.append(h('div', { class: 'ask-q' }, q)); const wait = h('div', { class: 'ask-a muted' }, '…'); log.append(wait); wait.scrollIntoView({ block: 'nearest' });
-    try { const r = await busy(btn, () => api('ask', { q }, { timeout: 60000 })); wait.className = 'ask-a'; wait.textContent = r.answer; wait.append(h('div', { class: 'muted small' }, t('ask_left', { n: r.remaining }))); }
+    try { const r = await busy(btn, () => api('ask', { q, hist }, { timeout: 80000 })); hist.push({ q, a: r.answer }); if (hist.length > 3) hist.shift(); wait.className = 'ask-a'; wait.textContent = r.answer; wait.append(h('div', { class: 'muted small' }, t('ask_left', { n: r.remaining }))); }
     catch (e) { wait.className = 'ask-a err'; wait.textContent = e.message; }
   }
 } };
